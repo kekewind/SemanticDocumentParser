@@ -1,6 +1,6 @@
 import asyncio
 import functools
-from typing import List, TypedDict
+from typing import List, TypedDict, Optional
 
 from llama_index.core.node_parser import SemanticSplitterNodeParser
 from llama_index.core.schema import TextNode, Document
@@ -10,7 +10,7 @@ from unstructured.documents.elements import Element, Title, NarrativeText
 class ElementGroup(TypedDict):
     """Groups of elements split by consecutive Title objects"""
 
-    title_node: Title
+    title_node: Optional[Title]
     nodes: List[Element]
 
 
@@ -42,14 +42,15 @@ def _create_element_groups(elements: List[Element]) -> List[ElementGroup]:
             current_group['nodes'].append(element)
 
     # Get rid of the remaining group
-    if current_group is not None:
+    if bool(current_group):
         element_groups.append(current_group)
 
-    return element_groups
+    # If no groups, then return the original list
+    return element_groups if element_groups else elements
 
 
 async def _semantic_split_node(
-        title_node: Title,
+        title_node: Optional[Title],
         node: NarrativeText,
         node_parser: SemanticSplitterNodeParser
 ) -> List[NarrativeText]:
@@ -77,13 +78,14 @@ async def _semantic_split_node(
     )
 
     elements: List[NarrativeText] = []
-
-    # Regenerative NarrativeText elements
+    title_text: str = title_node.text if title_node else ""
+    # Regenerate NarrativeText elements
     for llama_node in llama_nodes:
+
         elements.append(
             NarrativeText(
                 # The title node may be important to describe the node contents
-                text=title_node.text + "\n" + llama_node.text,
+                text=title_text + "\n" + llama_node.text,
                 metadata=node.metadata
             )
         )
@@ -103,13 +105,19 @@ async def _semantic_split_element_group(
 
     """
 
-    nodes: List[Element] = []
+    # First represent the entire group itself, in case that provides more complete meaning
+    title_text: str = group['title_node'].text + "\n\n" if group['title_node'] else ""
+
+    nodes: List[Element] = [
+        NarrativeText(
+            text=title_text + " ".join([e.text for e in group['nodes']]),
+        )
+    ]
 
     for node in group['nodes']:
 
         # Other node types can be parsed as their own semantic units & just need to be passed on
         if not isinstance(node, NarrativeText):
-            nodes.append(node)
             continue
 
         # Add the splits
@@ -161,4 +169,4 @@ async def semantic_splitter(
             )
         )
 
-    return elements
+    return nodes
