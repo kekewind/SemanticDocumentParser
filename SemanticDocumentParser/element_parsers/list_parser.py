@@ -28,7 +28,7 @@ def _list_group_parser(elements: List[ListItem], header_node: Optional[Narrative
     for idx, element in enumerate(elements):
         nodes.append(
             NarrativeText(
-                text=header_text + f"{idx + 1}) " + element.text,
+                text=header_text + f"List Item #{idx + 1}): " + element.text,
                 metadata=element.metadata,
             )
         )

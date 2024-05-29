@@ -206,32 +206,31 @@ async def semantic_tables(elements: List[Element], llm) -> List[Element]:
     """
 
     tasks: List[Awaitable] = []
+    nodes: List[Element] = []
 
     # Create the comprehension tasks
     for idx, element in enumerate(elements):
 
-        if isinstance(element, Table):
+        if not isinstance(element, Table):
+            nodes.append(element)
+            continue
 
-            previous_element: Optional[Element] = None
+        previous_element: Optional[Element] = None
 
-            # Only include if the previous node is a TITLE or TEXT element
-            if idx > 0:
-                if isinstance(elements[idx - 1], NarrativeText) or isinstance(elements[idx - 1], Title):
-                    previous_element = elements[idx - 1]
+        # Only include if the previous node is a TITLE or TEXT element
+        if idx > 0:
+            if isinstance(elements[idx - 1], NarrativeText) or isinstance(elements[idx - 1], Title):
+                previous_element = elements[idx - 1]
 
-            # Add the task
-            tasks.append(
-                _semantic_ingest_table(
-                    element, previous_element, llm
-                )
+        # Add the task
+        tasks.append(
+            _semantic_ingest_table(
+                element, previous_element, llm
             )
+        )
 
-    # Create the node list
-    nodes: List[Element] = []
-
-    # Yield the list as a 1D array
+    # Return the list as a 1D array
     for item in await asyncio.gather(*tasks):
-
         if isinstance(item, list):
             nodes.extend(item)
         else:
