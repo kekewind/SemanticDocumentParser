@@ -1,1 +1,3 @@
 llama-index-core
+setuptools
+unstructured[all-docs]
